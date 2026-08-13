@@ -718,6 +718,53 @@ Compares historical taxi-trip activity on actual holidays with comparable non-ho
 
 ![Q3 — Holiday Impact](docs/images/dashboard_q3_holiday_impact.png)
 
+
+### Bonus Insights
+
+![Bonus Insights — Demand and Pickup Area Performance](docs/images/dashboard_bonus_insights.png)
+
+#### Bonus 1 — Hourly Demand and Trip Value
+
+Historical taxi demand is highest during weekday evening periods, while higher-value trips tend to occur in the early morning.
+
+Key observations:
+
+- Friday 19:00 has the highest trip volume at approximately 2.40 million trips.
+- Friday 18:00 follows at approximately 2.38 million trips.
+- Thursday 18:00 records approximately 2.25 million trips.
+- Monday 05:00 has the highest average trip total at approximately $26.46.
+- Early-morning periods around 05:00–06:00 generally have lower trip volume but higher average trip values than the evening demand peaks.
+
+Business value:
+
+These patterns can support time-based fleet positioning. Evening periods may be prioritized for trip volume and service availability, while selected early-morning periods may represent opportunities for higher-value trips.
+
+Final model:
+
+`mart_hourly_demand`
+
+#### Bonus 2 — Pickup Area Demand and Revenue
+
+Chicago pickup community areas show different demand and trip-value profiles.
+
+Key observations:
+
+- Near North Side ranks first in demand with approximately 60.2 million qualifying trips and approximately $742.8 million in recorded trip totals.
+- O'Hare ranks fourth by trip volume at approximately 14.9 million trips but second by recorded trip revenue at approximately $696.6 million.
+- O'Hare has an average trip total of approximately $46.81, compared with approximately $12.33 for Near North Side.
+- The Loop ranks second in demand with approximately 43.8 million trips and approximately $552.1 million in recorded trip totals.
+- Garfield Ridge has a comparatively high average trip total of approximately $40.85 despite lower overall trip volume.
+
+Business value:
+
+The results distinguish high-volume urban pickup areas from lower-volume but higher-value airport-oriented areas. This can support differentiated fleet positioning, availability planning, and service strategies.
+
+Final model:
+
+`mart_pickup_area_performance`
+
+> Note: These bonus insights describe historical patterns across the dataset covered by the staging model and should not be interpreted as current operating conditions without a defined recent-period filter.
+
 ---
 
 ## 13. Technology Stack
