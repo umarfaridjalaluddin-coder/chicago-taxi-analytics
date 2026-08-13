@@ -1,47 +1,80 @@
 # Chicago Taxi Analytics
 
-A dbt analytics engineering project using Google BigQuery and Chicago Taxi Trips data to answer three analytical questions around taxi tipping, long working shifts, and the impact of holidays on taxi-trip activity.
+A dbt analytics engineering project built on Google BigQuery using Chicago Taxi Trips data.
+
+The project transforms raw taxi-trip records into tested analytical marts that answer three business questions: which taxi IDs generate the most recorded tips, which taxi IDs have the highest number of derived long shifts during 2023, and how taxi-trip activity changes during holidays compared with comparable non-holiday dates.
+
+The final analytical marts are used as data sources for a Looker Studio dashboard.
 
 ---
 
-## 1. Overview
+## 1. Project Overview
 
-This project analyses Chicago taxi trip data using **Google BigQuery** and **dbt** to build reproducible analytical datasets from raw trip records.
+This project demonstrates an end-to-end analytics engineering workflow using:
 
-The analysis focuses on three main questions:
+- Google BigQuery as the analytical data warehouse
+- dbt for transformation, testing, documentation, and lineage
+- SQL for analytical and business logic
+- dbt seeds for holiday reference data
+- Custom data-quality tests for important analytical assumptions
+- Looker Studio for dashboard reporting
 
-1. Which taxi IDs are the highest tip earners?
-2. Which taxi IDs recorded the highest number of long shifts during calendar year 2023?
-3. How does taxi-trip activity change on holidays compared with comparable non-holiday dates?
+The analysis addresses three questions:
 
-The project follows a layered analytics engineering approach using **staging**, **intermediate**, and **mart** models.
+### Q1 — Top Tip Earners
 
-The final analytical marts are used as data sources for a **Looker Studio dashboard**.
+Which taxi IDs have the highest total recorded tips?
 
-### Deliverables
+Final model:
 
-- **Dashboard:** [Chicago Taxi Analytics Dashboard](https://datastudio.google.com/reporting/f3f94de1-0c80-4386-933c-dd6ac59d83e0)
-- **dbt documentation:** Generate locally using `dbt docs generate` and view using `dbt docs serve`
-- **Final analytical marts:**
-  - `mart_top_100_tip_earners`
-  - `mart_top_100_overworkers`
-  - `mart_holiday_impact`
+`mart_top_100_tip_earners`
+
+### Q2 — Long-Shift / Overworker Analysis
+
+Which taxi IDs have the highest number of derived long shifts during calendar year 2023?
+
+Final model:
+
+`mart_top_100_overworkers`
+
+### Q3 — Holiday Impact
+
+How does taxi-trip activity on holidays compare with comparable non-holiday baseline dates?
+
+Final model:
+
+`mart_holiday_impact`
 
 ---
 
-## 2. Architecture
+## 2. Deliverables
 
-The project uses **Google BigQuery** as the analytical data warehouse and **dbt** for transformation, testing, documentation, and model dependency management.
+### Looker Studio Dashboard
 
-Raw Chicago Taxi Trips data is transformed through three logical model layers:
+[Chicago Taxi Analytics Dashboard](https://datastudio.google.com/reporting/f3f94de1-0c80-4386-933c-dd6ac59d83e0)
 
-1. **Staging** — prepares and standardises the source taxi-trip data.
-2. **Intermediate** — contains reusable analytical transformations and business logic.
-3. **Marts** — produces the final analytical datasets used to answer the three analytical questions.
+### Final Analytical Marts
 
-A dbt seed, `holidays.csv`, provides the holiday reference data required for the holiday-impact analysis.
+- `mart_top_100_tip_earners`
+- `mart_top_100_overworkers`
+- `mart_holiday_impact`
 
-### High-Level Architecture
+### dbt Documentation
+
+Generate the dbt documentation locally with:
+
+```bash
+dbt docs generate
+dbt docs serve
+```
+
+This provides model documentation, dependencies, tests, and lineage information generated from the dbt project.
+
+---
+
+## 3. Architecture
+
+The project follows a layered analytics engineering architecture:
 
 ```text
 Chicago Taxi Trips
@@ -49,33 +82,45 @@ Chicago Taxi Trips
         v
 +------------------+
 |     Staging      |
-|  stg_taxi_trips  |
+| stg_taxi_trips   |
 +------------------+
         |
         v
-+------------------+
-|   Intermediate   |
-|  Business Logic  |
-+------------------+
++---------------------------+
+|       Intermediate        |
+|                           |
+| int_taxi_shifts           |
+| int_daily_trip_counts     |
+| int_holiday_analysis_dates|
+| int_holiday_baseline      |
+| int_holiday_impact        |
++---------------------------+
         |
-        v
-+------------------+
-|      Marts       |
-| Analytical Data  |
-+------------------+
-        |
-        v
-+------------------+
-|  Looker Studio   |
-|    Dashboard     |
-+------------------+
-
-holidays.csv
-     |
-     +------> Holiday Analysis Models
+        +----------------------------+
+        |              |             |
+        v              v             v
++---------------+ +---------------+ +---------------+
+| Q1 Mart       | | Q2 Mart       | | Q3 Mart       |
+| Tip Earners   | | Overworkers   | | Holiday Impact|
++---------------+ +---------------+ +---------------+
+        |              |             |
+        +--------------+-------------+
+                       |
+                       v
+              Looker Studio Dashboard
 ```
 
-### Data Lineage
+The holiday analysis additionally uses:
+
+```text
+seeds/holidays.csv
+```
+
+as a dbt seed containing holiday reference information.
+
+---
+
+## 4. Data Lineage
 
 ```mermaid
 flowchart TD
@@ -88,202 +133,198 @@ flowchart TD
     H[holidays.csv Seed] --> E[int_holiday_analysis_dates]
 
     D --> E
-    D --> F[int_holiday_baseline]
-    E --> F
-    E --> G[int_holiday_impact]
-    F --> G
+    E --> F[int_holiday_baseline]
+    F --> G[int_holiday_impact]
 
     B --> M1[mart_top_100_tip_earners]
     C --> M2[mart_top_100_overworkers]
     G --> M3[mart_holiday_impact]
 
-    M1 --> L1[Looker Studio Q1]
-    M2 --> L2[Looker Studio Q2]
-    M3 --> L3[Looker Studio Q3]
+    M1 --> L1[Looker Studio - Q1]
+    M2 --> L2[Looker Studio - Q2]
+    M3 --> L3[Looker Studio - Q3]
 ```
+
+The dbt DAG remains the authoritative source for exact model dependencies.
 
 ---
 
-## 3. Model Layers
+## 5. Model Layers
 
 ### Staging
 
-The staging layer provides a clean and consistent interface to the raw Chicago Taxi Trips source data.
+The staging layer provides a controlled interface between the raw Chicago Taxi Trips source and downstream analytical models.
 
-The main staging model is:
+Primary model:
 
-- `stg_taxi_trips`
+```text
+models/staging/stg_taxi_trips.sql
+```
 
-The staging layer is kept separate from analytical business logic so that source preparation can be maintained independently from downstream calculations.
+The purpose of staging is to centralise source-level preparation so downstream models do not repeatedly operate directly on the raw source.
+
+---
 
 ### Intermediate
 
-The intermediate layer contains reusable analytical transformations required before producing the final marts.
+The intermediate layer contains reusable transformations and analytical business logic.
 
-The main intermediate models are:
+Main intermediate models include:
 
-- `int_taxi_shifts`
-- `int_daily_trip_counts`
-- `int_holiday_analysis_dates`
-- `int_holiday_baseline`
-- `int_holiday_impact`
+```text
+int_taxi_shifts
+int_daily_trip_counts
+int_holiday_analysis_dates
+int_holiday_baseline
+int_holiday_impact
+```
 
-These models separate transformation and business logic from the final presentation layer.
+Examples of responsibilities handled here include:
 
-This makes the analytical logic easier to inspect, test, debug, reuse, and maintain.
+- deriving taxi activity periods used for Q2
+- aggregating taxi activity to daily grain
+- identifying holiday analysis dates
+- constructing comparable non-holiday baselines
+- calculating holiday-level trip impacts
+
+Keeping these transformations separate from the final marts makes the analytical logic easier to inspect, test, debug, and maintain.
+
+---
 
 ### Marts
 
-The mart layer contains the final datasets designed for analytical and dashboard consumption.
+The mart layer contains the final datasets intended for analytical and dashboard consumption.
 
-#### Q1 — Top Tip Earners
+```text
+mart_top_100_tip_earners
+mart_top_100_overworkers
+mart_holiday_impact
+```
 
-`mart_top_100_tip_earners`
+Each mart is designed around one of the three analytical questions.
 
-Produces the final ranking used to analyse taxi IDs by recorded tips.
-
-#### Q2 — Long-Shift Analysis
-
-`mart_top_100_overworkers`
-
-Produces the final ranking of taxi IDs based on the number of derived long shifts during calendar year 2023.
-
-#### Q3 — Holiday Impact
-
-`mart_holiday_impact`
-
-Produces the final holiday-level dataset used to compare taxi-trip activity on holidays with comparable non-holiday baseline dates.
-
-These three marts are used as the analytical data sources for the Looker Studio dashboard.
+These marts are used as data sources for the Looker Studio dashboard.
 
 ---
 
-## 4. Project Structure
+## 6. Repository Structure
 
 ```text
 taxi_analytics/
-│
-├── analyses/
-│
-├── macros/
-│
-├── models/
-│   │
-│   ├── staging/
-│   │   ├── stg_taxi_trips.sql
-│   │   └── sources.yml
-│   │
-│   ├── intermediate/
-│   │   ├── int_daily_trip_counts.sql
-│   │   ├── int_holiday_analysis_dates.sql
-│   │   ├── int_holiday_baseline.sql
-│   │   ├── int_holiday_impact.sql
-│   │   └── int_taxi_shifts.sql
-│   │
-│   ├── marts/
-│   │   ├── mart_top_100_tip_earners.sql
-│   │   ├── mart_top_100_overworkers.sql
-│   │   └── mart_holiday_impact.sql
-│   │
-│   └── schema.yml
-│
-├── seeds/
-│   └── holidays.csv
-│
-├── snapshots/
-│
-├── tests/
-│
-├── .gitignore
-├── dbt_project.yml
-└── README.md
+|
+|-- analyses/
+|
+|-- macros/
+|
+|-- models/
+|   |
+|   |-- staging/
+|   |   `-- stg_taxi_trips.sql
+|   |
+|   |-- intermediate/
+|   |   |-- int_daily_trip_counts.sql
+|   |   |-- int_holiday_analysis_dates.sql
+|   |   |-- int_holiday_baseline.sql
+|   |   |-- int_holiday_impact.sql
+|   |   `-- int_taxi_shifts.sql
+|   |
+|   |-- marts/
+|   |   |-- mart_top_100_tip_earners.sql
+|   |   |-- mart_top_100_overworkers.sql
+|   |   `-- mart_holiday_impact.sql
+|   |
+|   |-- schema.yml
+|   `-- staging/
+|       `-- sources.yml
+|
+|-- seeds/
+|   `-- holidays.csv
+|
+|-- snapshots/
+|
+|-- tests/
+|
+|-- .gitignore
+|-- dbt_project.yml
+`-- README.md
 ```
 
-The `target/` directory and local credential/configuration files are intentionally excluded from version control.
+Generated dbt artifacts such as `target/`, logs, local credentials, and local environment files are excluded from version control.
 
 ---
 
-## 5. Setup and Reproduction
+## 7. Setup and Reproduction
 
 The following steps describe how to reproduce the project from a clean environment.
 
-### Prerequisites
-
-Before starting, ensure the following are available:
-
-- Git
-- Python
-- Google Cloud access
-- Google BigQuery access
-- dbt Core
-- dbt BigQuery adapter
-
-### 1. Clone the Repository
+### 7.1 Clone the Repository
 
 ```bash
 git clone https://github.com/umarfaridjalaluddin-coder/chicago-taxi-analytics.git
 cd chicago-taxi-analytics
 ```
 
-### 2. Create a Python Virtual Environment
+---
 
-Create the virtual environment:
+### 7.2 Create a Python Virtual Environment
 
 ```bash
 python -m venv .venv
 ```
 
-#### Windows PowerShell
-
-```powershell
-.venv\Scripts\Activate.ps1
-```
-
-#### Linux / WSL / macOS
+On Linux / WSL:
 
 ```bash
 source .venv/bin/activate
 ```
 
-### 3. Install dbt
+On Windows PowerShell:
 
-Install dbt with the BigQuery adapter:
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+---
+
+### 7.3 Install dbt
+
+Install the BigQuery adapter:
 
 ```bash
 pip install dbt-bigquery
 ```
 
-Confirm the installation:
+Verify the installation:
 
 ```bash
 dbt --version
 ```
 
-### 4. Configure Google Cloud Authentication
+---
 
-The environment running dbt must have permission to access the required Google Cloud and BigQuery resources.
+### 7.4 Configure Google Cloud Authentication
 
-When using Google Cloud CLI application default credentials:
+The project requires access to Google BigQuery.
 
-```bash
-gcloud auth application-default login
-```
+Authentication should be configured locally using an appropriate Google Cloud authentication method.
 
-Alternatively, configure an approved service-account authentication method.
+Do not commit:
 
-> **Security:** Never commit service-account JSON files, private keys, access tokens, passwords, or other credentials to this repository.
+- service-account private keys
+- credential JSON files
+- passwords
+- tokens
+- `.env` files containing secrets
 
-### 5. Configure `profiles.yml`
+Authentication credentials must remain outside version control.
 
-dbt requires a local profile containing the BigQuery connection configuration.
+---
 
-The profile should normally be stored at:
+### 7.5 Configure `profiles.yml`
 
-```text
-~/.dbt/profiles.yml
-```
+dbt connection configuration should be stored in the local dbt profile rather than committed with credentials.
 
-Example:
+A typical BigQuery profile structure is:
 
 ```yaml
 taxi_analytics:
@@ -293,20 +334,19 @@ taxi_analytics:
     dev:
       type: bigquery
       method: oauth
-      project: <YOUR_GCP_PROJECT_ID>
-      dataset: <YOUR_BIGQUERY_DATASET>
+      project: YOUR_GCP_PROJECT_ID
+      dataset: YOUR_BIGQUERY_DATASET
       threads: 4
-      timeout_seconds: 300
-      location: <YOUR_BIGQUERY_LOCATION>
+      location: YOUR_BIGQUERY_LOCATION
 ```
 
-Replace the placeholders with the appropriate values for your environment.
+Replace the placeholder values with the appropriate local Google Cloud configuration.
 
-The profile configuration should correspond to the profile referenced by `dbt_project.yml`.
+The actual authentication configuration may vary depending on the authentication method used.
 
-> **Important:** `profiles.yml` may contain environment-specific configuration and should not be committed to the repository.
+---
 
-### 6. Verify the dbt Connection
+### 7.6 Verify the dbt Connection
 
 Run:
 
@@ -314,9 +354,11 @@ Run:
 dbt debug
 ```
 
-A successful result confirms that dbt can read the project configuration and connect to BigQuery.
+Resolve any authentication or profile errors before continuing.
 
-### 7. Load Seeds
+---
+
+### 7.7 Load dbt Seeds
 
 Load the holiday reference dataset:
 
@@ -330,348 +372,384 @@ This loads:
 seeds/holidays.csv
 ```
 
-into the configured BigQuery target.
+into BigQuery.
 
-### 8. Build the Project
+---
 
-Run the complete dbt project:
+### 7.8 Build the Project
+
+Run:
 
 ```bash
 dbt build
 ```
 
-`dbt build` executes the project's models, tests, seeds, and other selected dbt resources according to the dependency graph.
+This executes the applicable dbt resources and tests in dependency order.
 
-Models can also be executed separately using:
+---
 
-```bash
-dbt run
-```
+### 7.9 Run Tests
 
-### 9. Run Tests
-
-Run the project tests:
+Tests can also be executed independently:
 
 ```bash
 dbt test
 ```
 
-The project contains both dbt schema tests and custom SQL data-quality tests.
-
-Tests cover areas including:
-
-- Required values
-- Expected row counts
-- Ranking boundaries
-- Model grain and uniqueness
-- Shift consistency
-- Holiday baseline validity
-- Holiday impact boundaries
-- Reconciliation between intermediate and mart outputs
-
-### 10. Generate dbt Documentation
-
-Generate the documentation:
-
-```bash
-dbt docs generate
-```
-
-Launch the documentation site locally:
-
-```bash
-dbt docs serve
-```
-
-The generated dbt documentation provides model metadata, dependencies, and lineage information.
+The project contains both schema-based tests and custom SQL data-quality tests.
 
 ---
 
-## 6. Analytical Outputs
+### 7.10 Generate Documentation
 
-### Q1 — Top 100 Tip Earners
+```bash
+dbt docs generate
+dbt docs serve
+```
 
-The first analytical output ranks taxi IDs according to recorded tip values.
+This generates and opens the dbt documentation site locally.
 
-Final model:
+---
+
+## 8. Analytical Approach
+
+### Q1 — Top Tip Earners
+
+The first analysis ranks taxi IDs according to total recorded tip amounts.
+
+Final output:
 
 ```text
 mart_top_100_tip_earners
 ```
 
-This mart provides the final dataset used for the Q1 dashboard analysis.
+The mart is designed to provide a ranked analytical result for dashboard consumption.
 
-### Q2 — Top 100 Overworkers
+---
 
-The second analytical output evaluates taxi activity using derived shift information and ranks taxi IDs according to the number of qualifying long shifts during calendar year 2023.
+### Q2 — Long-Shift Analysis
 
-Final model:
+The second analysis derives taxi activity periods from trip records and identifies taxi IDs with the highest number of long derived shifts during 2023.
 
-```text
-mart_top_100_overworkers
-```
-
-The supporting shift logic is separated into:
+The main transformation is:
 
 ```text
 int_taxi_shifts
 ```
 
-This separation keeps shift derivation logic independent from final ranking and presentation logic.
+The final ranking is produced by:
 
-### Q3 — Holiday Impact on Taxi Trips
+```text
+mart_top_100_overworkers
+```
 
-The third analytical output measures changes in taxi-trip activity on holidays compared with comparable non-holiday baseline dates.
+The term "shift" in this project refers to a shift derived analytically from taxi-trip activity rather than an official driver employment schedule.
 
-Supporting models include:
+This distinction is important because the source data contains taxi-trip activity rather than explicit employee shift records.
+
+---
+
+### Q3 — Holiday Impact
+
+The holiday analysis compares observed holiday taxi-trip activity against comparable non-holiday baseline dates.
+
+The transformation pipeline includes:
 
 ```text
 int_daily_trip_counts
+        |
+        v
 int_holiday_analysis_dates
+        |
+        v
 int_holiday_baseline
+        |
+        v
 int_holiday_impact
-```
-
-The final analytical output is:
-
-```text
+        |
+        v
 mart_holiday_impact
 ```
 
-The resulting mart is used to compare holiday taxi activity with its calculated baseline and present the resulting impact in Looker Studio.
+The final mart provides holiday-level impact measures used by the Looker Studio dashboard.
 
 ---
 
-## 7. Data Quality and Engineering Decisions
+## 9. Data Quality and Engineering Decisions
 
-The project separates transformation logic from validation logic so that important assumptions and analytical rules can be tested independently.
-
-### Taxi Identity and Q2 Interpretation
+### 9.1 Taxi Identity and Q2 Interpretation
 
 **Decision**
 
-Use the taxi identifier available in the source data as the analytical entity for taxi-level ranking and shift analysis.
-
-For Q2, the analysis is interpreted as identifying taxi IDs associated with the highest number of qualifying long shifts during calendar year 2023.
+Use the taxi identifier available in the source data as the analytical entity for Q2 and describe the result as taxi-level activity rather than making unsupported claims about individual human drivers.
 
 **Alternative considered**
 
-An alternative would be to interpret the analysis at an individual driver level.
+Interpret each taxi identifier directly as a unique driver.
 
 **Reason**
 
-The available analytical source identifies taxi activity using taxi IDs. A taxi ID can therefore be analysed directly without assuming that it uniquely represents one individual driver.
+The available identifier represents a taxi entity in the source data. Treating it as a guaranteed one-to-one driver identifier would introduce an assumption that is not established by the analytical dataset.
 
 **Trade-off / limitation**
 
-The results describe activity associated with taxi IDs rather than confirmed individual human drivers.
-
-Therefore, the analysis should not be interpreted as a definitive measure of individual driver working behaviour.
-
-### Incomplete Trip End Timestamps
-
-**Decision**
-
-Trips without sufficient end-time information are not treated as fully completed shift-ending observations where the analytical logic requires a valid trip end timestamp.
-
-**Alternative considered**
-
-Missing trip-end timestamps could be imputed or replaced using an estimated value.
-
-**Reason**
-
-Imputing an end timestamp would introduce an assumption that is not directly supported by the source record.
-
-This could distort calculated durations and derived shift boundaries.
-
-**Trade-off / limitation**
-
-Some taxi activity may therefore be excluded from duration-dependent calculations when the required timestamp information is incomplete.
-
-### Extreme Trip Durations
-
-**Decision**
-
-Duration-related logic is validated using explicit data-quality tests rather than silently modifying unusual observations without evidence.
-
-**Alternative considered**
-
-Extreme trip durations could be automatically capped, winsorised, or removed.
-
-**Reason**
-
-Automatically changing extreme values would introduce an additional analytical assumption.
-
-Keeping the underlying observations while testing relevant boundaries makes the treatment more transparent.
-
-**Trade-off / limitation**
-
-Unusual but valid source records may still influence downstream duration-based analysis if they satisfy the implemented business rules.
-
-### Exclusion of 2020–2021 from Holiday Analysis
-
-**Decision**
-
-The holiday analysis excludes 2020–2021.
-
-**Alternative considered**
-
-Use all available years in the holiday comparison.
-
-**Reason**
-
-The 2020–2021 period represents an abnormal period for transportation activity and may not provide a comparable baseline for normal taxi demand patterns.
-
-Removing these years reduces the risk that exceptional travel behaviour materially distorts the holiday comparison.
-
-**Trade-off / limitation**
-
-The holiday analysis therefore covers a narrower historical period and does not attempt to describe holiday behaviour during 2020–2021.
-
-### Holiday Baseline Contamination
-
-**Decision**
-
-Holiday activity is compared against constructed non-holiday baseline dates rather than using holiday dates as their own comparison observations.
-
-**Alternative considered**
-
-Use a simpler overall daily average or allow holiday observations to enter the comparison baseline.
-
-**Reason**
-
-Including holidays in the baseline could contaminate the reference level being used to measure holiday effects.
-
-Separating holiday observations from comparable non-holiday dates provides a cleaner analytical comparison.
-
-**Trade-off / limitation**
-
-The resulting impact remains dependent on the implemented baseline-selection methodology.
-
-It should therefore be interpreted as an analytical comparison rather than a causal estimate of the effect of a holiday.
+The Q2 results identify taxis associated with high numbers of derived long shifts. They should not automatically be interpreted as proof that one individual driver personally worked every observed trip or shift.
 
 ---
 
-## 8. Data Quality Tests
+### 9.2 Incomplete Trip End Timestamps
 
-The repository includes custom SQL tests under:
+**Decision**
+
+Preserve derived shifts affected by missing trip end timestamps and flag them explicitly rather than dropping them or fabricating an end time.
+
+Affected shifts are identified using:
+
+```text
+has_incomplete_end_time
+```
+
+A dedicated consistency test validates that the incomplete-end flag remains aligned with the underlying timestamp condition.
+
+**Alternative considered**
+
+Drop incomplete records before shift construction or impute a replacement end timestamp.
+
+**Reason**
+
+Dropping these observations would hide an existing source-data quality issue and could change the observed activity population.
+
+Imputing an end timestamp would introduce unsupported information and could distort derived shift duration.
+
+Preserving and flagging the affected shifts keeps the issue visible and auditable without inventing data.
+
+**Trade-off / limitation**
+
+Duration-based measures for affected shifts require caution because the true shift end is not fully observed.
+
+These records are retained for transparency but should not be interpreted as having the same duration reliability as fully observed shifts.
+
+---
+
+### 9.3 Active-Trip-Duration Plausibility Treatment
+
+**Decision**
+
+Apply a plausibility treatment to `total_active_trip_hours` while preserving the underlying trip in shift construction.
+
+For the active-trip-hours calculation:
+
+- `trip_seconds IS NULL` contributes `0`
+- `trip_seconds > 14400` seconds (4 hours) contributes `0`
+- otherwise the recorded `trip_seconds` value is used
+
+The trip itself is not removed, and this treatment does not redefine `shift_duration_hours`.
+
+**Alternative considered**
+
+Remove trips above the four-hour threshold entirely or use their full recorded duration in `total_active_trip_hours`.
+
+**Reason**
+
+Removing the trip could change trip sequencing and therefore alter derived shift boundaries.
+
+Using the complete extreme value could allow an implausibly large trip duration to dominate the supporting active-hours metric.
+
+Zeroing only the contribution to `total_active_trip_hours` preserves the trip's role in shift construction while limiting its influence on that supporting metric.
+
+**Trade-off / limitation**
+
+`total_active_trip_hours` is therefore a plausibility-adjusted supporting measure rather than a literal sum of every recorded `trip_seconds` value.
+
+---
+
+### 9.4 Exclusion of 2020–2021 from Holiday Analysis
+
+**Decision**
+
+Exclude 2020 and 2021 from the primary holiday-impact comparison.
+
+**Alternative considered**
+
+Include all available years in the holiday analysis.
+
+**Reason**
+
+Taxi activity during 2020 and 2021 was affected by exceptional pandemic-related changes in mobility and travel behaviour.
+
+Including those years in a historical holiday comparison could cause pandemic-related structural effects to be interpreted incorrectly as normal holiday effects.
+
+**Trade-off / limitation**
+
+The resulting holiday analysis covers fewer years, reducing the historical sample available for comparison.
+
+However, the remaining years provide a more comparable basis for interpreting typical holiday-related changes.
+
+---
+
+### 9.5 Holiday Baseline Contamination
+
+**Decision**
+
+Construct holiday baselines using comparable non-holiday dates and prevent holiday dates from contaminating the comparison population.
+
+**Alternative considered**
+
+Compare each holiday against a broader daily average without explicitly excluding other holidays.
+
+**Reason**
+
+Including holiday observations in the baseline could distort the reference level being used to estimate holiday impact.
+
+A holiday should be compared with dates intended to represent normal activity rather than dates that may themselves contain holiday-related behaviour.
+
+**Trade-off / limitation**
+
+Stricter baseline eligibility reduces the number of dates available for comparison.
+
+The approach prioritises comparability and interpretability over maximising the baseline sample size.
+
+---
+
+## 10. Data Quality Testing
+
+Testing is treated as part of the analytical design rather than only as a final validation step.
+
+The repository contains custom SQL tests covering areas such as:
+
+- null tip validation
+- ranking boundaries
+- expected mart row counts
+- derived shift grain
+- incomplete shift-end consistency
+- long-shift count validation
+- overworker rate validation
+- shift-count reconciliation
+- holiday analysis grain
+- holiday baseline grain
+- holiday baseline validity
+- non-negative baseline trip counts
+- holiday impact boundaries
+- holiday summary reconciliation
+
+Tests are stored under:
 
 ```text
 tests/
 ```
 
-Examples include:
+and schema-level tests are defined in:
 
 ```text
-test_holiday_baseline_days_valid.sql
-test_holiday_baseline_trip_count_nonnegative.sql
-test_holiday_impact_lower_bound.sql
-test_holiday_summary_year_counts_reconcile.sql
-test_int_holiday_analysis_dates_unique_grain.sql
-test_int_holiday_baseline_unique_grain.sql
-test_int_holiday_impact_unique_grain.sql
-test_int_taxi_shifts_unique_grain.sql
-test_mart_top_100_overworkers_row_count.sql
-test_mart_top_100_tip_earners_row_count.sql
-test_overworker_rank_bounds.sql
-test_overworkers_long_shift_count_valid.sql
-test_overworkers_rates_valid.sql
-test_overworkers_shift_counts_reconcile.sql
-test_q1_tips_not_null.sql
-test_taxi_shifts_incomplete_end_consistency.sql
-test_tip_earner_rank_bounds.sql
+models/schema.yml
 ```
 
-These tests provide additional validation beyond model construction and help detect unexpected changes in analytical assumptions or output structure.
+Run the complete test suite with:
+
+```bash
+dbt test
+```
+
+or as part of:
+
+```bash
+dbt build
+```
 
 ---
 
-## 9. Dashboard
+## 11. Security and Credential Handling
 
-The final analytical marts are visualised using **Google Looker Studio**.
+Sensitive credentials are intentionally excluded from Git version control.
 
-### Chicago Taxi Analytics Dashboard
-
-[Open the Chicago Taxi Analytics Dashboard](https://datastudio.google.com/reporting/f3f94de1-0c80-4386-933c-dd6ac59d83e0)
-
-The dashboard presents the outputs corresponding to the three analytical questions:
-
-- **Q1:** Top tip-earning taxi IDs
-- **Q2:** Taxi IDs with the highest number of qualifying long shifts
-- **Q3:** Holiday impact on taxi-trip activity
-
-The dashboard is the presentation layer, while the analytical and business logic remains implemented and version-controlled within dbt.
-
----
-
-## 10. Technology Stack
-
-| Technology | Purpose |
-|---|---|
-| Google BigQuery | Analytical data warehouse |
-| dbt Core | Data transformation and model management |
-| SQL | Transformation and analytical logic |
-| dbt Seeds | Holiday reference data |
-| dbt Tests | Data-quality validation |
-| dbt Docs | Documentation and lineage |
-| Looker Studio | Dashboard and visualisation |
-| Git | Local version control |
-| GitHub | Source-code repository |
-
----
-
-## 11. Reproducibility and Security
-
-The repository contains the transformation logic, model definitions, seed data, tests, and documentation required to understand and reproduce the analytical workflow.
-
-Environment-specific credentials are intentionally excluded from version control.
-
-The `.gitignore` prevents common generated or sensitive files from being committed, including:
+The `.gitignore` excludes common sensitive and generated files, including:
 
 ```text
-target/
-dbt_packages/
-logs/
 .env
 profiles.yml
-
 *.pem
 *.key
 *.p12
 *.pfx
 *service-account*.json
 *credentials*.json
-
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
+target/
+logs/
+dbt_packages/
 ```
 
-Users reproducing the project must configure their own Google Cloud authentication and dbt profile.
+Google Cloud credentials and service-account secrets should never be committed to the repository.
+
+A public repository should contain only source code, configuration templates, documentation, tests, and non-sensitive project assets.
 
 ---
 
-## 12. Validation Summary
+## 12. Dashboard
 
-The project uses multiple levels of validation:
+The final analytical marts are connected to Looker Studio.
 
-- Source preparation through the staging layer
-- Separation of reusable business logic into intermediate models
-- Final analytical outputs isolated in mart models
-- Schema-level dbt tests
-- Custom SQL tests for business-rule validation
-- Reconciliation tests between intermediate and final outputs
-- Explicit handling and documentation of analytical limitations
+The dashboard presents the outputs for:
 
-This structure is intended to keep the analysis reproducible, testable, and easier to maintain.
+- Q1 — top taxi IDs by recorded tips
+- Q2 — taxi IDs with the highest number of derived long shifts
+- Q3 — historical holiday impact on taxi-trip activity
 
----
+Dashboard:
 
-## Repository
-
-**GitHub:**  
-[umarfaridjalaluddin-coder/chicago-taxi-analytics](https://github.com/umarfaridjalaluddin-coder/chicago-taxi-analytics)
-
-**Dashboard:**  
 [Chicago Taxi Analytics Dashboard](https://datastudio.google.com/reporting/f3f94de1-0c80-4386-933c-dd6ac59d83e0)
+
+---
+
+## 13. Technology Stack
+
+| Technology | Purpose |
+|---|---|
+| Google BigQuery | Cloud analytical data warehouse |
+| dbt | Data transformation, testing, documentation and lineage |
+| SQL | Transformation and analytical logic |
+| dbt Seeds | Holiday reference data |
+| Looker Studio | Dashboard and visualisation |
+| Git | Local version control |
+| GitHub | Source-code hosting and project portfolio |
+
+---
+
+## 14. Current Reproducibility Note
+
+Local dbt execution requires valid Google Cloud authentication and a correctly configured `profiles.yml`.
+
+Credentials are intentionally not included in this public repository.
+
+Users reproducing the project should configure their own Google Cloud credentials and BigQuery environment before running:
+
+```bash
+dbt debug
+dbt seed
+dbt build
+dbt test
+```
+
+---
+
+## 15. Future Improvements
+
+Potential improvements include:
+
+- automated CI validation using GitHub Actions
+- a committed `profiles.yml.example` containing placeholders only
+- additional automated source-quality monitoring
+- expanded dashboard documentation
+- additional analysis of seasonal and temporal taxi-demand patterns
+
+---
+
+## 16. Author
+
+**Umar Farid**
+
+Chicago Taxi Analytics  
+Analytics Engineering Project
+
+Technologies demonstrated:
+
+`BigQuery` · `dbt` · `SQL` · `Data Quality Testing` · `Looker Studio` · `Git` · `GitHub`
