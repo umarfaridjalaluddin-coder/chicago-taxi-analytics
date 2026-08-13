@@ -536,6 +536,24 @@ Duration-based measures for affected shifts require caution because the true shi
 
 These records are retained for transparency but should not be interpreted as having the same duration reliability as fully observed shifts.
 
+A further limitation concerns partially missing trip end timestamps.
+
+The current `has_incomplete_end_time` flag identifies shifts where no observed trip end timestamp is available. Because `MAX(trip_end_timestamp)` ignores null values, a shift containing both observed and missing trip end timestamps is not flagged as incomplete.
+
+Missing end timestamps can also affect shift construction. When the previous trip has a null end timestamp, `prev_trip_end` is null and the following trip is treated as the start of a new shift. This can fragment an otherwise continuous working period into shorter derived shifts and may therefore affect the 12-hour long-shift classification.
+
+Observed scale in the 2023 analysis:
+
+| Measure | Shifts |
+|---|---:|
+| Total derived shifts | 742,800 |
+| Shifts with at least one missing trip end | 83 |
+| Shifts where all trip ends are missing | 25 |
+| Partially incomplete shifts | 58 |
+| Share with any missing trip end | ~0.011% |
+
+Given the very small observed share, the current methodology is retained for this analysis and the behaviour is documented as a limitation rather than changing the tested shift-construction logic immediately before submission.
+
 ---
 
 ### 9.3 Active-Trip-Duration Plausibility Treatment
