@@ -1,0 +1,712 @@
+version: 2
+
+models:
+
+  # ============================================================
+  # STAGING
+  # ============================================================
+
+  - name: stg_taxi_trips
+    description: >
+      Clean row-level staging model for the Chicago Taxi Trips source.
+
+      Grain: one row per source taxi trip.
+
+      This model exposes reusable fields required across the assessment,
+      performs only light transformations, and derives common calendar fields
+      used by downstream models.
+
+      It intentionally avoids analysis-specific filtering, aggregation,
+      ranking, shift construction, holiday logic, and other business rules.
+      Null and unusual source values are generally preserved so downstream
+      models can make explicit analytical decisions.
+
+    columns:
+
+      - name: taxi_id
+        description: >
+          Privacy-preserving identifier associated with the taxi or medallion.
+          It should not be interpreted as a unique individual-driver identifier.
+          Null values are preserved in staging because not every downstream
+          analysis requires taxi identity.
+
+      - name: trip_start_timestamp
+        description: >
+          Timestamp representing the recorded start of the taxi trip.
+        tests:
+          - not_null
+
+      - name: trip_end_timestamp
+        description: >
+          Timestamp representing the recorded end of the taxi trip. Some source
+          records contain a null end timestamp. These records are preserved in
+          staging and handled explicitly by duration-dependent models.
+
+      - name: trip_date
+        description: >
+          Calendar date derived from trip_start_timestamp. This provides a
+          reusable daily grain for downstream analysis.
+
+      - name: trip_year
+        description: >
+          Calendar year extracted from trip_start_timestamp and used for
+          readable year-based filtering in downstream models.
+
+      - name: trip_month
+        description: >
+          Calendar month derived from trip_start_timestamp and represented by
+          the first day of the corresponding month.
+
+      - name: trip_seconds
+        description: >
+          Source-reported trip duration in seconds. The staging model preserves
+          the original value. Analysis-specific duration handling is performed
+          downstream.
+
+      - name: trip_miles
+        description: >
+          Source-reported trip distance in miles.
+
+      - name: fare
+        description: >
+          Recorded fare amount for the trip in US dollars. Positive-fare
+          restrictions are analysis-specific and are not applied in staging.
+
+      - name: tips
+        description: >
+          Recorded tip amount for the trip in US dollars. The staging model
+          preserves the recorded value without attempting to estimate
+          unobserved tips.
+
+      - name: payment_type
+        description: >
+          Payment method recorded for the trip. Leading and trailing whitespace
+          is removed using TRIM while null values remain null. The accepted
+          values below reflect payment categories observed during profiling of
+          the source data.
+        tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - 'Credit Card'
+                  - 'Cash'
+                  - 'Mobile'
+                  - 'Prcard'
+                  - 'Unknown'
+                  - 'No Charge'
+                  - 'Dispute'
+                  - 'Split'
+                  - 'Way2ride'
+                  - 'Pcard'
+                  - 'Prepaid'
+
+      - name: trip_total
+        description: >
+          Recorded total monetary amount for the trip in US dollars.
+
+      - name: tolls
+        description: >
+          Recorded toll amount associated with the trip in US dollars.
+
+      - name: extras
+        description: >
+          Recorded additional charges associated with the trip in US dollars.
+
+      - name: company
+        description: >
+          Taxi company associated with the reported trip where available.
+
+      - name: pickup_community_area
+        description: >
+          Chicago community-area identifier for the pickup location where
+          available. Geographic fields may be null in the source data.
+
+      - name: dropoff_community_area
+        description: >
+          Chicago community-area identifier for the drop-off location where
+          available. Geographic fields may be null in the source data.
+
+      - name: pickup_centroid_latitude
+        description: >
+          Latitude of the pickup-area centroid where available. Null values are
+          preserved from the source.
+
+      - name: pickup_centroid_longitude
+        description: >
+          Longitude of the pickup-area centroid where available. Null values are
+          preserved from the source.
+
+      - name: dropoff_centroid_latitude
+        description: >
+          Latitude of the drop-off-area centroid where available. Null values
+          are preserved from the source.
+
+      - name: dropoff_centroid_longitude
+        description: >
+          Longitude of the drop-off-area centroid where available. Null values
+          are preserved from the source.
+
+
+  # ============================================================
+  # INTERMEDIATE - TAXI SHIFTS
+  # ============================================================
+
+  - name: int_taxi_shifts
+    description: >
+      Shift-level transformation used for the Q2 sustained-activity analysis.
+
+      Grain: one row per taxi_id and derived shift_id.
+
+      Trips are ordered chronologically for each taxi_id. A new shift begins
+      when there is no previous trip or when the gap between the previous trip
+      end and the next trip start is at least 480 minutes (8 hours).
+
+      Shift duration represents elapsed wall-clock time between shift_start and
+      shift_end. Active trip hours are retained as a separate supporting metric.
+
+    columns:
+
+      - name: taxi_id
+        description: >
+          Privacy-preserving taxi or medallion identifier used to group trips
+          into activity periods. It should not be interpreted as a unique
+          individual-driver identifier.
+        tests:
+          - not_null
+
+      - name: shift_id
+        description: >
+          Sequential derived shift identifier within each taxi_id.
+        tests:
+          - not_null
+
+      - name: shift_start
+        description: >
+          Earliest trip start timestamp within the derived shift.
+        tests:
+          - not_null
+
+      - name: shift_end
+        description: >
+          Latest available trip end timestamp within the derived shift. This can
+          be null for rare incomplete shifts where no valid end timestamp is
+          available.
+
+      - name: shift_duration_hours
+        description: >
+          Elapsed wall-clock duration of the shift in hours, calculated between
+          shift_start and shift_end. This may be null for incomplete shifts.
+
+      - name: trip_count
+        description: >
+          Number of taxi trips assigned to the derived shift.
+        tests:
+          - not_null
+
+      - name: total_active_trip_hours
+        description: >
+          Sum of active trip duration within the shift, expressed in hours.
+          Individual trip durations greater than four hours are excluded from
+          this supporting metric according to the Q2 data-quality rule.
+        tests:
+          - not_null
+
+      - name: overlap_trip_count
+        description: >
+          Number of cases within the shift where a subsequent trip starts before
+          the previous trip's recorded end timestamp.
+        tests:
+          - not_null
+
+      - name: has_incomplete_end_time
+        description: >
+          Boolean data-quality flag indicating that the derived shift does not
+          have a complete usable end timestamp.
+        tests:
+          - not_null
+
+
+  # ============================================================
+  # INTERMEDIATE - DAILY TRIP COUNTS
+  # ============================================================
+
+  - name: int_daily_trip_counts
+    description: >
+      Daily Chicago taxi activity aggregation used by the Q3 holiday-impact
+      analysis.
+
+      Grain: one row per trip_date.
+
+      The model covers the selected analysis years 2017, 2018, 2019, 2022 and
+      2023. Years 2020 and 2021 are excluded from the primary holiday analysis.
+
+    columns:
+
+      - name: trip_date
+        description: >
+          Calendar date of the aggregated taxi activity.
+        tests:
+          - not_null
+          - unique
+
+      - name: trip_count
+        description: >
+          Number of recorded taxi trips on the date.
+        tests:
+          - not_null
+
+      - name: total_fare
+        description: >
+          Total recorded fare amount for the date in US dollars.
+        tests:
+          - not_null
+
+      - name: total_trip_miles
+        description: >
+          Total recorded trip distance for the date in miles.
+        tests:
+          - not_null
+
+      - name: avg_trip_duration_minutes
+        description: >
+          Average recorded trip duration for the date in minutes.
+        tests:
+          - not_null
+
+
+  # ============================================================
+  # INTERMEDIATE - HOLIDAY ANALYSIS DATES
+  # ============================================================
+
+  - name: int_holiday_analysis_dates
+    description: >
+      Expands the federal holiday seed into the individual dates evaluated by
+      the holiday-impact analysis.
+
+      Grain: one row per holiday_name, holiday_year, date_type and
+      analysis_date.
+
+      Every holiday-year contributes an actual holiday date. When the official
+      observed federal date differs from the actual calendar date, a second
+      observed analysis row is created. Actual and observed dates are therefore
+      analyzed separately without double-counting dates that are identical.
+
+    columns:
+
+      - name: holiday_name
+        description: >
+          Federal holiday name.
+        tests:
+          - not_null
+
+      - name: holiday_year
+        description: >
+          Holiday year associated with the federal holiday definition.
+        tests:
+          - not_null
+
+      - name: date_type
+        description: >
+          Identifies whether analysis_date represents the actual calendar
+          holiday or a separate federally observed date.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - 'actual'
+                  - 'observed'
+
+      - name: analysis_date
+        description: >
+          Calendar date evaluated as the holiday observation.
+        tests:
+          - not_null
+
+
+  # ============================================================
+  # INTERMEDIATE - HOLIDAY BASELINE
+  # ============================================================
+
+  - name: int_holiday_baseline
+    description: >
+      Builds the local same-weekday comparison baseline used by the Q3
+      holiday-impact analysis.
+
+      Grain: one row per holiday_name, holiday_year, date_type and
+      analysis_date.
+
+      Four candidate comparison dates are generated at -14, -7, +7 and +14
+      days relative to each analysis date. Because these offsets are multiples
+      of seven days, they preserve the weekday of the holiday observation.
+
+      Candidate dates that coincide with any actual or observed holiday date
+      are excluded. Remaining candidates are joined to daily taxi activity and
+      averaged to produce baseline_trip_count.
+
+    columns:
+
+      - name: holiday_name
+        tests:
+          - not_null
+
+      - name: holiday_year
+        tests:
+          - not_null
+
+      - name: date_type
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - 'actual'
+                  - 'observed'
+
+      - name: analysis_date
+        tests:
+          - not_null
+
+      - name: valid_baseline_days
+        description: >
+          Number of baseline candidate dates with usable daily taxi data after
+          holiday-date exclusions. A maximum of four candidates is possible.
+        tests:
+          - not_null
+
+      - name: baseline_trip_count
+        description: >
+          Average taxi trip count across the available valid baseline dates.
+          This can be null when no candidate dates have usable trip data.
+
+
+  # ============================================================
+  # INTERMEDIATE - HOLIDAY IMPACT
+  # ============================================================
+
+  - name: int_holiday_impact
+    description: >
+      Calculates holiday-level trip-volume impact before final validity
+      filtering.
+
+      Grain: one row per holiday_name, holiday_year, date_type and
+      analysis_date.
+
+      The model compares the taxi trip count on each holiday analysis date with
+      its local same-weekday baseline. Potentially unusable observations remain
+      visible at this intermediate layer so data-coverage limitations are not
+      silently removed.
+
+    columns:
+
+      - name: holiday_name
+        tests:
+          - not_null
+
+      - name: holiday_year
+        tests:
+          - not_null
+
+      - name: date_type
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - 'actual'
+                  - 'observed'
+
+      - name: analysis_date
+        tests:
+          - not_null
+
+      - name: valid_baseline_days
+        description: >
+          Number of usable comparison dates contributing to the holiday
+          baseline.
+        tests:
+          - not_null
+
+      - name: holiday_trip_count
+        description: >
+          Number of taxi trips recorded on analysis_date. This may be null when
+          the holiday analysis date falls outside the selected daily analysis
+          years.
+
+      - name: baseline_trip_count
+        description: >
+          Average trip count across valid nearby same-weekday comparison dates.
+
+      - name: trip_difference
+        description: >
+          Difference in trips calculated as holiday_trip_count minus
+          baseline_trip_count.
+
+      - name: impact_pct
+        description: >
+          Percentage difference between holiday volume and baseline volume.
+          For example, -25 means holiday trip volume was 25 percent below the
+          comparison baseline, while +25 means it was 25 percent above baseline.
+
+
+  # ============================================================
+  # MART - TOP 100 TIP EARNERS
+  # ============================================================
+
+  - name: mart_top_100_tip_earners
+    description: >
+      Final Q1 analytical mart containing the Top 100 taxi IDs ranked by total
+      recorded tips during October through December 2023.
+
+      Grain: one row per ranked taxi_id.
+
+      The analysis is restricted to Credit Card and Mobile transactions with
+      positive fares because recorded tips are evaluated only where the source
+      provides meaningful electronic tipping information.
+
+    columns:
+
+      - name: tip_earner_rank
+        description: >
+          Ranking from 1 to 100 based primarily on total recorded tips.
+        tests:
+          - not_null
+          - unique
+
+      - name: taxi_id
+        description: >
+          Privacy-preserving taxi or medallion identifier. It should not be
+          interpreted as a unique individual-driver identifier.
+        tests:
+          - not_null
+          - unique
+
+      - name: total_tips
+        description: >
+          Total recorded tips for the taxi during the Q1 analysis period in US
+          dollars.
+        tests:
+          - not_null
+
+      - name: trip_count
+        description: >
+          Number of qualifying trips associated with the taxi during the
+          analysis period.
+        tests:
+          - not_null
+
+      - name: avg_tip_per_trip
+        description: >
+          Average recorded tip amount per qualifying trip in US dollars.
+        tests:
+          - not_null
+
+      - name: total_fare
+        description: >
+          Total recorded fare amount across qualifying trips in US dollars.
+        tests:
+          - not_null
+
+      - name: tip_percentage
+        description: >
+          Recorded tips expressed as a percentage of qualifying fare.
+        tests:
+          - not_null
+
+
+  # ============================================================
+  # MART - TOP 100 OVERWORKERS
+  # ============================================================
+
+  - name: mart_top_100_overworkers
+    description: >
+      Final Q2 analytical mart containing the Top 100 taxi IDs ranked by the
+      frequency of derived long activity periods during 2023.
+
+      Grain: one row per ranked taxi_id.
+
+      A new shift starts after a break of at least eight hours, and a long shift
+      is defined as a complete derived shift lasting at least twelve elapsed
+      hours.
+
+      Because taxi_id identifies a taxi or medallion-level entity rather than a
+      documented unique individual driver, this mart should be interpreted as
+      sustained vehicle activity rather than definitive evidence that one
+      individual driver worked the entire period.
+
+    columns:
+
+      - name: overworker_rank
+        description: >
+          Ranking from 1 to 100 based on repeated long-shift activity.
+        tests:
+          - not_null
+          - unique
+
+      - name: taxi_id
+        description: >
+          Privacy-preserving taxi or medallion identifier.
+        tests:
+          - not_null
+          - unique
+
+      - name: total_shifts
+        description: >
+          Total number of derived shifts associated with the taxi.
+        tests:
+          - not_null
+
+      - name: long_shift_count
+        description: >
+          Number of complete derived shifts with an elapsed duration of at least
+          12 hours.
+        tests:
+          - not_null
+
+      - name: non_long_shift_count
+        description: >
+          Number of derived shifts not classified as long shifts.
+        tests:
+          - not_null
+
+      - name: long_shift_rate
+        description: >
+          Proportion of derived shifts classified as long shifts, represented
+          as a decimal between 0 and 1.
+        tests:
+          - not_null
+
+      - name: total_shift_hours
+        description: >
+          Sum of complete derived shift durations in elapsed hours.
+        tests:
+          - not_null
+
+      - name: avg_shift_hours
+        description: >
+          Average complete derived shift duration in elapsed hours.
+        tests:
+          - not_null
+
+      - name: max_shift_hours
+        description: >
+          Maximum complete derived shift duration in elapsed hours. Retained as
+          a diagnostic metric rather than the primary ranking measure.
+        tests:
+          - not_null
+
+      - name: total_active_trip_hours
+        description: >
+          Sum of active trip duration across the taxi's derived shifts in hours.
+        tests:
+          - not_null
+
+      - name: total_trips
+        description: >
+          Total number of trips represented by the taxi's derived shifts.
+        tests:
+          - not_null
+
+      - name: total_overlap_trips
+        description: >
+          Total number of detected cases where a subsequent trip begins before
+          the previous trip's recorded end timestamp.
+        tests:
+          - not_null
+
+      - name: overlap_rate
+        description: >
+          Overlap count divided by total trips, represented as a decimal between
+          0 and 1.
+        tests:
+          - not_null
+
+      - name: incomplete_shift_count
+        description: >
+          Number of derived shifts where a usable shift end timestamp was not
+          available.
+        tests:
+          - not_null
+
+
+  # ============================================================
+  # MART - HOLIDAY IMPACT
+  # ============================================================
+
+  - name: mart_holiday_impact
+    description: >
+      Final Q3 analytical mart summarizing the effect of federal holidays on
+      Chicago taxi trip volume.
+
+      Grain: one row per holiday_name and date_type.
+
+      Only holiday observations with at least two valid baseline comparison
+      dates and an available holiday-day trip count contribute to the final
+      summary.
+
+      Actual and separately observed federal holiday dates remain separate so
+      potential celebration-day effects and institutional-closure effects are
+      not automatically conflated.
+
+    columns:
+
+      - name: holiday_name
+        description: >
+          Federal holiday being summarized.
+        tests:
+          - not_null
+
+      - name: date_type
+        description: >
+          Whether the summary represents actual calendar holiday dates or
+          separately observed federal dates.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - 'actual'
+                  - 'observed'
+
+      - name: years_observed
+        description: >
+          Number of distinct holiday years contributing valid observations to
+          the summary.
+        tests:
+          - not_null
+
+      - name: avg_impact_pct
+        description: >
+          Mean percentage difference between holiday trip volume and the local
+          same-weekday baseline. Negative values indicate fewer trips than
+          baseline; positive values indicate more trips.
+        tests:
+          - not_null
+
+      - name: median_impact_pct
+        description: >
+          Median percentage difference between holiday trip volume and the
+          local same-weekday baseline.
+        tests:
+          - not_null
+
+      - name: positive_impact_years
+        description: >
+          Number of valid holiday-year observations where trip volume exceeded
+          the baseline.
+        tests:
+          - not_null
+
+      - name: negative_impact_years
+        description: >
+          Number of valid holiday-year observations where trip volume was below
+          the baseline.
+        tests:
+          - not_null
+
+      - name: no_change_years
+        description: >
+          Number of valid holiday-year observations where calculated impact was
+          exactly zero.
+        tests:
+          - not_null

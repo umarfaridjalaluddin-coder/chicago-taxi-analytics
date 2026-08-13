@@ -1,0 +1,34 @@
+version: 2
+
+sources:
+  - name: chicago_taxi
+    description: >
+      Public Chicago Taxi Trips dataset provided through Google BigQuery.
+      The dataset contains reported taxi trips from the City of Chicago and is
+      used as the upstream source for this analytics engineering project.
+
+      This is an external public data source that is not controlled by this
+      project. Source-level data-quality issues are therefore detected,
+      documented, and handled downstream rather than modified at source.
+
+      Known characteristics observed during profiling include nullable
+      geographic fields, occasional missing trip end timestamps, overlapping
+      trip timestamps, and extreme trip-duration values. These characteristics
+      are preserved in staging unless a downstream analytical model has a
+      documented reason to handle them differently.
+
+    database: bigquery-public-data
+    schema: chicago_taxi_trips
+
+    tables:
+      - name: taxi_trips
+        description: >
+          Raw Chicago taxi trip records. One source row represents one reported
+          taxi trip. The table includes taxi identifiers, trip timestamps,
+          duration and distance measures, fares, tips, payment methods, company
+          information, and pickup/drop-off geography.
+
+          The source dataset is treated as read-only. This project does not
+          attempt to repair upstream records directly; instead, analytical
+          assumptions and data-quality treatments are implemented explicitly
+          in downstream dbt models.

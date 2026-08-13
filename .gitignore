@@ -1,0 +1,35 @@
+# dbt generated files
+target/
+dbt_packages/
+logs/
+
+# Python virtual environments
+.venv/
+venv/
+
+# Environment variables
+.env
+.env.*
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Credentials / secrets
+*.pem
+*.key
+*.p12
+*.pfx
+*service-account*.json
+*credentials*.json
+
+# Local dbt profile
+profiles.yml
+
+# IDE / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
