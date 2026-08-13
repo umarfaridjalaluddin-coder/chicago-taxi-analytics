@@ -766,7 +766,6 @@ This provides an automated quality gate for the dbt project before changes are i
 
 Potential improvements include:
 
-- a committed `profiles.yml.example` containing placeholders only
 - additional automated source-quality monitoring
 - expanded dashboard documentation
 - additional analysis of seasonal and temporal taxi-demand patterns
