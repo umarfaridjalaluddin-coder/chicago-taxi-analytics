@@ -753,3 +753,5 @@ Analytics Engineering Project
 Technologies demonstrated:
 
 `BigQuery` · `dbt` · `SQL` · `Data Quality Testing` · `Looker Studio` · `Git` · `GitHub`
+
+<!-- CI protection test -->
