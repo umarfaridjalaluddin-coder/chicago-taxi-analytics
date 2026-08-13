@@ -37,7 +37,7 @@ Raw Chicago Taxi Trips data is transformed through three logical model layers:
 
 1. **Staging** — prepares and standardises the source taxi-trip data.
 2. **Intermediate** — contains reusable analytical transformations and business logic.
-3. **Marts** — produces the final analytical datasets used to answer the three business questions.
+3. **Marts** — produces the final analytical datasets used to answer the three analytical questions.
 
 A dbt seed, `holidays.csv`, provides the holiday reference data required for the holiday-impact analysis.
 
@@ -97,9 +97,9 @@ flowchart TD
     C --> M2[mart_top_100_overworkers]
     G --> M3[mart_holiday_impact]
 
-    M1 --> L1[Looker Studio - Q1]
-    M2 --> L2[Looker Studio - Q2]
-    M3 --> L3[Looker Studio - Q3]
+    M1 --> L1[Looker Studio Q1]
+    M2 --> L2[Looker Studio Q2]
+    M3 --> L3[Looker Studio Q3]
 ```
 
 ---
@@ -218,16 +218,12 @@ Before starting, ensure the following are available:
 - dbt Core
 - dbt BigQuery adapter
 
----
-
 ### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/umarfaridjalaluddin-coder/chicago-taxi-analytics.git
 cd chicago-taxi-analytics
 ```
-
----
 
 ### 2. Create a Python Virtual Environment
 
@@ -249,8 +245,6 @@ python -m venv .venv
 source .venv/bin/activate
 ```
 
----
-
 ### 3. Install dbt
 
 Install dbt with the BigQuery adapter:
@@ -265,15 +259,11 @@ Confirm the installation:
 dbt --version
 ```
 
----
-
 ### 4. Configure Google Cloud Authentication
 
 The environment running dbt must have permission to access the required Google Cloud and BigQuery resources.
 
-Configure Google Cloud authentication using the authentication method appropriate for your environment.
-
-For example, when using Google Cloud CLI application default credentials:
+When using Google Cloud CLI application default credentials:
 
 ```bash
 gcloud auth application-default login
@@ -282,8 +272,6 @@ gcloud auth application-default login
 Alternatively, configure an approved service-account authentication method.
 
 > **Security:** Never commit service-account JSON files, private keys, access tokens, passwords, or other credentials to this repository.
-
----
 
 ### 5. Configure `profiles.yml`
 
@@ -318,8 +306,6 @@ The profile configuration should correspond to the profile referenced by `dbt_pr
 
 > **Important:** `profiles.yml` may contain environment-specific configuration and should not be committed to the repository.
 
----
-
 ### 6. Verify the dbt Connection
 
 Run:
@@ -329,8 +315,6 @@ dbt debug
 ```
 
 A successful result confirms that dbt can read the project configuration and connect to BigQuery.
-
----
 
 ### 7. Load Seeds
 
@@ -348,8 +332,6 @@ seeds/holidays.csv
 
 into the configured BigQuery target.
 
----
-
 ### 8. Build the Project
 
 Run the complete dbt project:
@@ -365,8 +347,6 @@ Models can also be executed separately using:
 ```bash
 dbt run
 ```
-
----
 
 ### 9. Run Tests
 
@@ -388,8 +368,6 @@ Tests cover areas including:
 - Holiday baseline validity
 - Holiday impact boundaries
 - Reconciliation between intermediate and mart outputs
-
----
 
 ### 10. Generate dbt Documentation
 
@@ -423,8 +401,6 @@ mart_top_100_tip_earners
 
 This mart provides the final dataset used for the Q1 dashboard analysis.
 
----
-
 ### Q2 — Top 100 Overworkers
 
 The second analytical output evaluates taxi activity using derived shift information and ranks taxi IDs according to the number of qualifying long shifts during calendar year 2023.
@@ -442,8 +418,6 @@ int_taxi_shifts
 ```
 
 This separation keeps shift derivation logic independent from final ranking and presentation logic.
-
----
 
 ### Q3 — Holiday Impact on Taxi Trips
 
@@ -494,8 +468,6 @@ The results describe activity associated with taxi IDs rather than confirmed ind
 
 Therefore, the analysis should not be interpreted as a definitive measure of individual driver working behaviour.
 
----
-
 ### Incomplete Trip End Timestamps
 
 **Decision**
@@ -515,8 +487,6 @@ This could distort calculated durations and derived shift boundaries.
 **Trade-off / limitation**
 
 Some taxi activity may therefore be excluded from duration-dependent calculations when the required timestamp information is incomplete.
-
----
 
 ### Extreme Trip Durations
 
@@ -538,8 +508,6 @@ Keeping the underlying observations while testing relevant boundaries makes the 
 
 Unusual but valid source records may still influence downstream duration-based analysis if they satisfy the implemented business rules.
 
----
-
 ### Exclusion of 2020–2021 from Holiday Analysis
 
 **Decision**
@@ -559,8 +527,6 @@ Removing these years reduces the risk that exceptional travel behaviour material
 **Trade-off / limitation**
 
 The holiday analysis therefore covers a narrower historical period and does not attempt to describe holiday behaviour during 2020–2021.
-
----
 
 ### Holiday Baseline Contamination
 
