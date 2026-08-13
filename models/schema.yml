@@ -710,3 +710,170 @@ models:
           exactly zero.
         tests:
           - not_null
+
+  # ============================================================
+  # MART - BONUS 1: HOURLY DEMAND
+  # ============================================================
+
+  - name: mart_hourly_demand
+    description: >
+      Bonus analytical mart summarizing Chicago taxi demand and trip
+      characteristics by day of week and hour of day.
+
+      Grain: one row per day_of_week_number and hour_of_day.
+
+      Only trips with a non-null start timestamp and positive fare and
+      trip total are included.
+
+    columns:
+
+      - name: day_of_week_number
+        description: >
+          BigQuery day-of-week number derived from the trip start timestamp,
+          where Sunday = 1 and Saturday = 7.
+        tests:
+          - not_null
+
+      - name: day_of_week
+        description: >
+          Human-readable day-of-week name derived from the trip start timestamp.
+        tests:
+          - not_null
+
+      - name: hour_of_day
+        description: >
+          Hour of day derived from the trip start timestamp, ranging from
+          0 through 23.
+        tests:
+          - not_null
+
+      - name: trip_count
+        description: >
+          Number of qualifying taxi trips in the day-of-week and hour combination.
+        tests:
+          - not_null
+
+      - name: avg_fare
+        description: >
+          Average recorded fare for qualifying trips in the time period.
+        tests:
+          - not_null
+
+      - name: avg_tip
+        description: >
+          Average recorded tip for qualifying trips in the time period.
+
+      - name: avg_trip_total
+        description: >
+          Average recorded trip total for qualifying trips in the time period.
+        tests:
+          - not_null
+
+      - name: avg_trip_minutes
+        description: >
+          Average recorded trip duration in minutes for the time period.
+
+      - name: avg_trip_miles
+        description: >
+          Average recorded trip distance in miles for the time period.
+
+
+  # ============================================================
+  # MART - BONUS 2: PICKUP AREA PERFORMANCE
+  # ============================================================
+
+  - name: mart_pickup_area_performance
+    description: >
+      Bonus analytical mart summarizing taxi demand and recorded trip revenue
+      characteristics by Chicago pickup community area.
+
+      Grain: one row per pickup_community_area.
+
+      Only trips with a known pickup community area and positive fare and
+      trip total are included.
+
+      Community-area names are joined from the community_areas seed to provide
+      human-readable location names for analysis and dashboard reporting.
+
+    columns:
+
+      - name: pickup_community_area
+        description: >
+          Chicago community-area identifier associated with the trip pickup.
+        tests:
+          - not_null
+          - unique
+
+      - name: community_area_name
+        description: >
+          Human-readable Chicago community-area name joined from the
+          community_areas seed.
+        tests:
+          - not_null
+
+      - name: trip_count
+        description: >
+          Number of qualifying taxi trips originating from the pickup
+          community area.
+        tests:
+          - not_null
+
+      - name: total_fare
+        description: >
+          Sum of recorded fares for qualifying trips originating from the
+          pickup community area.
+        tests:
+          - not_null
+
+      - name: total_tips
+        description: >
+          Sum of recorded tips for qualifying trips originating from the
+          pickup community area.
+
+      - name: total_trip_revenue
+        description: >
+          Sum of recorded trip totals for qualifying trips originating from
+          the pickup community area.
+        tests:
+          - not_null
+
+      - name: avg_fare
+        description: >
+          Average recorded fare for qualifying trips originating from the
+          pickup community area.
+        tests:
+          - not_null
+
+      - name: avg_tip
+        description: >
+          Average recorded tip for qualifying trips originating from the
+          pickup community area.
+
+      - name: avg_trip_total
+        description: >
+          Average recorded trip total for qualifying trips originating from
+          the pickup community area.
+        tests:
+          - not_null
+
+      - name: avg_trip_miles
+        description: >
+          Average recorded trip distance in miles for qualifying trips
+          originating from the pickup community area.
+
+      - name: demand_rank
+        description: >
+          Pickup community-area rank based on trip count in descending order,
+          where 1 represents the area with the highest trip count.
+        tests:
+          - not_null
+          - unique
+
+      - name: revenue_rank
+        description: >
+          Pickup community-area rank based on total recorded trip revenue in
+          descending order, where 1 represents the area with the highest
+          recorded trip revenue.
+        tests:
+          - not_null
+          - unique
