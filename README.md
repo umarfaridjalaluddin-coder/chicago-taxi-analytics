@@ -730,12 +730,40 @@ dbt test
 ```
 
 ---
+## 15. Continuous Integration and Branch Protection
 
-## 15. Future Improvements
+The repository uses GitHub Actions to automatically validate the dbt project.
+
+The CI workflow is defined in:
+
+`.github/workflows/dbt-ci.yml`
+
+The workflow runs when:
+
+- a pull request targets the `main` branch
+- changes are pushed to the `main` branch
+
+The CI pipeline:
+
+1. checks out the repository
+2. authenticates to Google Cloud using Workload Identity Federation
+3. configures Python 3.12
+4. installs `dbt-bigquery`
+5. creates a dedicated dbt CI profile
+6. validates the BigQuery connection using `dbt debug`
+7. executes the complete project using `dbt build`
+
+Google Cloud authentication uses GitHub OIDC and Workload Identity Federation rather than storing a long-lived service-account key in the repository.
+
+The `main` branch is protected by a GitHub ruleset. Changes are introduced through pull requests, and the required `dbt-build` GitHub Actions status check must pass before merging.
+
+This provides an automated quality gate for the dbt project before changes are incorporated into the protected branch.
+
+---
+## 16. Future Improvements
 
 Potential improvements include:
 
-- automated CI validation using GitHub Actions
 - a committed `profiles.yml.example` containing placeholders only
 - additional automated source-quality monitoring
 - expanded dashboard documentation
@@ -743,7 +771,7 @@ Potential improvements include:
 
 ---
 
-## 16. Author
+## 17. Author
 
 **Umar Farid**
 
@@ -754,4 +782,3 @@ Technologies demonstrated:
 
 `BigQuery` · `dbt` · `SQL` · `Data Quality Testing` · `Looker Studio` · `Git` · `GitHub`
 
-<!-- CI protection test -->
