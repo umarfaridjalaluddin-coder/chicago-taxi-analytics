@@ -1,3 +1,8 @@
+
+
+
+
+
 # Chicago Taxi Analytics
 
 [![dbt CI](https://github.com/umarfaridjalaluddin-coder/chicago-taxi-analytics/actions/workflows/dbt-ci.yml/badge.svg)](https://github.com/umarfaridjalaluddin-coder/chicago-taxi-analytics/actions/workflows/dbt-ci.yml)
@@ -797,20 +802,20 @@ dbt test
 ```
 
 ---
-## 15. Continuous Integration and Branch Protection
 
-The repository uses GitHub Actions to automatically validate the dbt project.
+## 15. Continuous Integration, Deployment and Branch Protection
 
-The CI workflow is defined in:
+The repository uses GitHub Actions to automate both CI validation and production deployment for the dbt project.
+
+The workflow is defined in:
 
 `.github/workflows/dbt-ci.yml`
 
-The workflow runs when:
+The workflow has two stages:
 
-- a pull request targets the `main` branch
-- changes are pushed to the `main` branch
+### Pull Request CI
 
-The CI pipeline:
+When a pull request targets the `main` branch, GitHub Actions:
 
 1. checks out the repository
 2. authenticates to Google Cloud using Workload Identity Federation
@@ -819,12 +824,30 @@ The CI pipeline:
 5. creates a dedicated dbt CI profile
 6. validates the BigQuery connection using `dbt debug`
 7. executes the complete project using `dbt build`
+8. builds and tests the project in the `taxi_analytics_ci` BigQuery dataset
+
+This provides an automated quality gate before changes can be merged.
+
+### Main Branch CD
+
+When changes are merged or pushed to the `main` branch, GitHub Actions:
+
+1. checks out the merged repository
+2. authenticates to Google Cloud using Workload Identity Federation
+3. configures Python 3.12
+4. installs `dbt-bigquery`
+5. creates a production dbt profile
+6. validates the production BigQuery connection using `dbt debug`
+7. executes `dbt build`
+8. deploys the dbt models to the `taxi_analytics_prod` BigQuery dataset
 
 Google Cloud authentication uses GitHub OIDC and Workload Identity Federation rather than storing a long-lived service-account key in the repository.
 
-The `main` branch is protected by a GitHub ruleset. Changes are introduced through pull requests, and the required `dbt-build` GitHub Actions status check must pass before merging.
+The `main` branch is protected by a GitHub ruleset. Changes are introduced through pull requests, and the required dbt CI status check must pass before merging.
 
-This provides an automated quality gate for the dbt project before changes are incorporated into the protected branch.
+The resulting workflow is:
+
+`Pull Request → CI validation in taxi_analytics_ci → Merge to main → CD deployment to taxi_analytics_prod`
 
 ---
 ## 16. Future Improvements
