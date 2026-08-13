@@ -10,3 +10,12 @@ taxi_analytics:
       threads: 4
       timeout_seconds: 300
       location: YOUR_BIGQUERY_LOCATION
+
+    ci:
+      type: bigquery
+      method: oauth
+      project: umar-farid-project-time
+      dataset: taxi_analytics_ci
+      threads: 4
+      timeout_seconds: 300
+      location: US
