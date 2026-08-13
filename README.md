@@ -688,17 +688,35 @@ A public repository should contain only source code, configuration templates, do
 
 ## 12. Dashboard
 
-The final analytical marts are connected to Looker Studio.
+The final analytical marts are connected to Looker Studio and presented through a three-page analytical dashboard.
 
-The dashboard presents the outputs for:
+The dashboard provides the outputs for:
 
 - Q1 — top taxi IDs by recorded tips
 - Q2 — taxi IDs with the highest number of derived long shifts
 - Q3 — historical holiday impact on taxi-trip activity
 
-Dashboard:
+### Live Dashboard
 
-[Chicago Taxi Analytics Dashboard](https://datastudio.google.com/reporting/f3f94de1-0c80-4386-933c-dd6ac59d83e0)
+[View the Chicago Taxi Analytics Dashboard](https://datastudio.google.com/reporting/f3f94de1-0c80-4386-933c-dd6ac59d83e0)
+
+### Q1 — Top Tip Earners
+
+Ranks the top taxi IDs by total recorded tips for the Oct–Dec 2023 analysis period, with supporting trip-count and tip-to-fare metrics.
+
+![Q1 — Top Tip Earners](docs/images/dashboard_q1_tip_earners.png)
+
+### Q2 — Long-Shift Analysis
+
+Highlights taxi IDs with the highest number of derived long shifts using the defined shift-boundary and long-shift rules.
+
+![Q2 — Long-Shift Analysis](docs/images/dashboard_q2_long_shift_analysis.png)
+
+### Q3 — Holiday Impact
+
+Compares historical taxi-trip activity on actual holidays with comparable non-holiday baselines to show the estimated percentage impact by holiday.
+
+![Q3 — Holiday Impact](docs/images/dashboard_q3_holiday_impact.png)
 
 ---
 
