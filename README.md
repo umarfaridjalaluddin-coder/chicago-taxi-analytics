@@ -1,5 +1,7 @@
 # Chicago Taxi Analytics
 
+[![dbt CI](https://github.com/umarfaridjalaluddin-coder/chicago-taxi-analytics/actions/workflows/dbt-ci.yml/badge.svg)](https://github.com/umarfaridjalaluddin-coder/chicago-taxi-analytics/actions/workflows/dbt-ci.yml)
+
 A dbt analytics engineering project built on Google BigQuery using Chicago Taxi Trips data.
 
 The project transforms raw taxi-trip records into tested analytical marts that answer three business questions: which taxi IDs generate the most recorded tips, which taxi IDs have the highest number of derived long shifts during 2023, and how taxi-trip activity changes during holidays compared with comparable non-holiday dates.
