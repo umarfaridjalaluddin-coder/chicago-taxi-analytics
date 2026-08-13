@@ -744,6 +744,10 @@ Compares historical taxi-trip activity on actual holidays with comparable non-ho
 
 ### Bonus Insights
 
+**Analysis scope:** The bonus insights use all available records in the analytical dataset, covering 1 January 2013 through 31 December 2023.
+
+Because these results aggregate the full historical period, time periods and pickup areas with higher historical trip volumes contribute more heavily to the rankings and averages. The findings therefore describe long-term historical patterns and should not be interpreted as current operating conditions.
+
 ![Bonus Insights — Demand and Pickup Area Performance](docs/images/dashboard_bonus_insights.png)
 
 #### Bonus 1 — Hourly Demand and Trip Value
