@@ -1,0 +1,12 @@
+taxi_analytics:
+  target: dev
+
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth
+      project: YOUR_GCP_PROJECT_ID
+      dataset: YOUR_BIGQUERY_DATASET
+      threads: 4
+      timeout_seconds: 300
+      location: YOUR_BIGQUERY_LOCATION
