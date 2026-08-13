@@ -1,4 +1,4 @@
-name: dbt CI
+name: dbt CI/CD
 
 on:
   pull_request:
@@ -13,7 +13,8 @@ permissions:
   id-token: write
 
 jobs:
-  dbt-build:
+  dbt-ci:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
     steps:
@@ -61,3 +62,53 @@ jobs:
 
       - name: Run dbt build
         run: dbt build --target ci
+
+  dbt-cd:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: umar-farid-project-time
+          workload_identity_provider: projects/925931318772/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: dbt-github-ci@umar-farid-project-time.iam.gserviceaccount.com
+          create_credentials_file: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dbt BigQuery
+        run: |
+          python -m pip install --upgrade pip
+          pip install dbt-bigquery==1.12.0
+
+      - name: Create dbt production profile
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml <<'EOF'
+          taxi_analytics:
+            target: prod
+
+            outputs:
+              prod:
+                type: bigquery
+                method: oauth
+                project: umar-farid-project-time
+                dataset: taxi_analytics_prod
+                threads: 4
+                timeout_seconds: 300
+                location: US
+          EOF
+
+      - name: Validate production dbt connection
+        run: dbt debug --target prod
+
+      - name: Deploy dbt models to production
+        run: dbt build --target prod
